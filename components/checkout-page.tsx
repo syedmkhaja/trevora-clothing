@@ -59,11 +59,9 @@ export default function CheckoutPage() {
 
     setSubmitting(true);
     try {
-      // This adapter is intentionally a no-payment demo. Replace it with a
-      // server-backed provider session before accepting real orders.
+      // Demo adapter only. It does not process a payment or place an order.
       const result = await paymentProvider.initialize({ customer, items, paymentMethod, total: finalTotal });
       setCheckoutOrder(createCheckoutRecord(result.reference, customer, items, SHIPPING_CHARGE, paymentMethod));
-      setFormError(result.message);
       router.push("/checkout/confirmation");
     } catch {
       setFormError("Checkout details could not be prepared. Please try again.");
@@ -83,7 +81,7 @@ export default function CheckoutPage() {
 
   const inputClass = "mt-2 block w-full border-b border-black/25 bg-transparent py-3 text-sm outline-none transition focus:border-black";
   function errorFor(field: keyof CustomerDetails) {
-    return errors[field] ? <p className="mt-2 text-xs text-red-700" role="alert">{errors[field]}</p> : null;
+    return errors[field] ? <p id={`checkout-${field}-error`} className="mt-2 text-xs text-red-700" role="alert">{errors[field]}</p> : null;
   }
 
   return <div className="container-wide py-10 md:py-16">
@@ -96,26 +94,25 @@ export default function CheckoutPage() {
           <h2 className="font-display text-2xl">Delivery details</h2>
           <div className="mt-5 grid gap-x-6 gap-y-5 sm:grid-cols-2">
             <label className="block text-[10px] uppercase tracking-widest sm:col-span-2">Customer name
-              <input autoComplete="name" value={customer.fullName} onChange={event => updateField("fullName", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.fullName)} aria-describedby={errors.fullName ? "checkout-name-error" : undefined}/>
-              {errors.fullName && <span id="checkout-name-error">{errorFor("fullName")}</span>}
+              <input autoComplete="name" value={customer.fullName} onChange={event => updateField("fullName", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.fullName)} aria-describedby={errors.fullName ? "checkout-fullName-error" : undefined}/>{errorFor("fullName")}
             </label>
             <label className="block text-[10px] uppercase tracking-widest">Mobile number
-              <input autoComplete="tel" type="tel" inputMode="numeric" maxLength={10} value={customer.mobile} onChange={event => updateField("mobile", event.target.value.replace(/\D/g, ""))} placeholder="10-digit mobile number" className={inputClass} aria-invalid={Boolean(errors.mobile)}/>{errorFor("mobile")}
+              <input autoComplete="tel" type="tel" inputMode="numeric" maxLength={10} value={customer.mobile} onChange={event => updateField("mobile", event.target.value.replace(/\D/g, ""))} placeholder="10-digit mobile number" className={inputClass} aria-invalid={Boolean(errors.mobile)} aria-describedby={errors.mobile ? "checkout-mobile-error" : undefined}/>{errorFor("mobile")}
             </label>
             <label className="block text-[10px] uppercase tracking-widest">Email address
-              <input autoComplete="email" type="email" value={customer.email} onChange={event => updateField("email", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.email)}/>{errorFor("email")}
+              <input autoComplete="email" type="email" value={customer.email} onChange={event => updateField("email", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "checkout-email-error" : undefined}/>{errorFor("email")}
             </label>
             <label className="block text-[10px] uppercase tracking-widest sm:col-span-2">Full delivery address
-              <textarea autoComplete="street-address" rows={2} value={customer.address} onChange={event => updateField("address", event.target.value)} placeholder="House / flat, street, area, landmark" className={`${inputClass} resize-y`} aria-invalid={Boolean(errors.address)}/>{errorFor("address")}
+              <textarea autoComplete="street-address" rows={2} value={customer.address} onChange={event => updateField("address", event.target.value)} placeholder="House / flat, street, area, landmark" className={`${inputClass} resize-y`} aria-invalid={Boolean(errors.address)} aria-describedby={errors.address ? "checkout-address-error" : undefined}/>{errorFor("address")}
             </label>
             <label className="block text-[10px] uppercase tracking-widest">City
-              <input autoComplete="address-level2" value={customer.city} onChange={event => updateField("city", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.city)}/>{errorFor("city")}
+              <input autoComplete="address-level2" value={customer.city} onChange={event => updateField("city", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.city)} aria-describedby={errors.city ? "checkout-city-error" : undefined}/>{errorFor("city")}
             </label>
             <label className="block text-[10px] uppercase tracking-widest">State
-              <input autoComplete="address-level1" value={customer.state} onChange={event => updateField("state", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.state)}/>{errorFor("state")}
+              <input autoComplete="address-level1" value={customer.state} onChange={event => updateField("state", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.state)} aria-describedby={errors.state ? "checkout-state-error" : undefined}/>{errorFor("state")}
             </label>
             <label className="block text-[10px] uppercase tracking-widest">PIN code
-              <input autoComplete="postal-code" inputMode="numeric" maxLength={6} value={customer.pinCode} onChange={event => updateField("pinCode", event.target.value.replace(/\D/g, ""))} placeholder="6-digit PIN code" className={inputClass} aria-invalid={Boolean(errors.pinCode)}/>{errorFor("pinCode")}
+              <input autoComplete="postal-code" inputMode="numeric" maxLength={6} value={customer.pinCode} onChange={event => updateField("pinCode", event.target.value.replace(/\D/g, ""))} placeholder="6-digit PIN code" className={inputClass} aria-invalid={Boolean(errors.pinCode)} aria-describedby={errors.pinCode ? "checkout-pinCode-error" : undefined}/>{errorFor("pinCode")}
             </label>
           </div>
         </section>

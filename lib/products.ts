@@ -21,4 +21,9 @@ export const products: Product[] = [
   { id: "08", slug: "merino-beanie", name: "Merino Beanie", category: "Accessories", price: 64, description: "A soft, close-knit merino wool beanie with a minimal folded cuff. Warmth without the noise.", image: "https://images.unsplash.com/photo-1576871337622-98d48d1cf531?auto=format&fit=crop&w=1000&q=85", colors: ["Charcoal", "Olive"] }
 ];
 
-export const formatPrice = (price: number) => `$${price.toFixed(2)}`;
+/** Prices are presented in Indian rupees throughout the storefront. */
+export const formatPrice = (price: number) => new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 2
+}).format(price);
