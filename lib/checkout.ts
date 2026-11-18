@@ -12,6 +12,8 @@ export type CustomerDetails = {
 
 export type CheckoutOrder = {
   reference: string;
+  paymentId: string;
+  paymentStatus: "verified";
   customer: CustomerDetails;
   items: { productId: string; name: string; quantity: number; size: string; unitPrice: number; lineTotal: number }[];
   subtotal: number;
