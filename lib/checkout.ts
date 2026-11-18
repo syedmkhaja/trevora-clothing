@@ -21,7 +21,8 @@ export type CheckoutOrder = {
   createdAt: string;
 };
 
-export const SHIPPING_CHARGE = 9.99;
+export const SHIPPING_CHARGE = 99;
+export const formatINR = (amount: number) => new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(amount);
 
 export const paymentMethodLabels: Record<PaymentMethod, string> = {
   upi: "UPI",
