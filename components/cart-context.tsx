@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Product } from "@/lib/products";
+import type { CheckoutOrder } from "@/lib/checkout";
 
 type CartItem = { product: Product; quantity: number; size: string };
 type CartContextValue = {
@@ -14,6 +15,8 @@ type CartContextValue = {
   setQuantity: (id: string, size: string, quantity: number) => void;
   count: number;
   total: number;
+  checkoutOrder: CheckoutOrder | null;
+  setCheckoutOrder: (order: CheckoutOrder | null) => void;
 };
 const CartContext = createContext<CartContextValue | null>(null);
 
@@ -21,6 +24,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [ready, setReady] = useState(false);
+  const [checkoutOrder, setCheckoutOrder] = useState<CheckoutOrder | null>(null);
   useEffect(() => {
     try {
       const stored = localStorage.getItem("trevora-cart");
@@ -41,9 +45,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }),
       removeItem: (id, size) => setItems(current => current.filter(item => !(item.product.id === id && item.size === size))),
       setQuantity: (id, size, quantity) => setItems(current => quantity < 1 ? current.filter(item => !(item.product.id === id && item.size === size)) : current.map(item => item.product.id === id && item.size === size ? { ...item, quantity } : item)),
-      count, total
+      count, total, checkoutOrder, setCheckoutOrder
     };
-  }, [items, isOpen]);
+  }, [items, isOpen, checkoutOrder]);
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 export function useCart() {
