@@ -14,9 +14,26 @@ export type PaymentAttempt = {
   paymentMethod: Exclude<PaymentMethod, "cod">;
 };
 
+type StoredOrder = {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  customer_name: string;
+  phone: string;
+  email: string;
+  address: string;
+  city: string;
+  state: string;
+  pin_code: string;
+  products: OrderProduct[];
+  subtotal_paise: string | number;
+  shipping_paise: string | number;
+  amount_paise: string | number;
+  payment_method: PaymentMethod;
+  created_at: Date | string;
+};
+
 let sqlClient: ReturnType<typeof postgres> | undefined;
 let schemaPromise: Promise<void> | undefined;
-
 function db() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not configured.");
@@ -71,9 +88,8 @@ async function ensureSchema() {
 
 export async function savePaymentAttempt(attempt: PaymentAttempt): Promise<void> {
   await ensureSchema();
-  const client = db();
   const { customer, products } = attempt;
-  await client`INSERT INTO trevora_payment_attempts (
+  await db()`INSERT INTO trevora_payment_attempts (
     razorpay_order_id, customer_name, phone, email, address, city, state, pin_code,
     products, subtotal_paise, shipping_paise, amount_paise, payment_method
   ) VALUES (
@@ -85,6 +101,28 @@ export async function savePaymentAttempt(attempt: PaymentAttempt): Promise<void>
 }
 
 type VerifyPaymentInput = { orderId: string; paymentId: string; amountPaise: number; currency: string };
+function toCheckoutOrder(order: StoredOrder): CheckoutOrder {
+  const customer: CustomerDetails = {
+    fullName: order.customer_name, mobile: order.phone, email: order.email,
+    address: order.address, city: order.city, state: order.state, pinCode: order.pin_code
+  };
+  const products = order.products;
+  const subtotal = Number(order.subtotal_paise) / 100;
+  const shipping = Number(order.shipping_paise) / 100;
+  return {
+    reference: order.razorpay_order_id,
+    paymentId: order.razorpay_payment_id,
+    paymentStatus: "verified",
+    customer,
+    items: products.map(product => ({ ...product, lineTotal: product.unitPrice * product.quantity })),
+    subtotal,
+    shipping,
+    total: Number(order.amount_paise) / 100,
+    paymentMethod: order.payment_method,
+    createdAt: new Date(order.created_at).toISOString()
+  };
+}
+
 export async function recordCapturedPayment(input: VerifyPaymentInput): Promise<CheckoutOrder> {
   await ensureSchema();
   const client = db();
@@ -94,7 +132,6 @@ export async function recordCapturedPayment(input: VerifyPaymentInput): Promise<
     if (input.currency !== "INR" || Number(attempt.amount_paise) !== input.amountPaise) {
       throw new Error("Verified payment amount or currency does not match the checkout.");
     }
-
     const [created] = await transaction`INSERT INTO trevora_orders (
       razorpay_order_id, razorpay_payment_id, customer_name, phone, email, address,
       city, state, pin_code, products, subtotal_paise, shipping_paise, amount_paise,
@@ -107,39 +144,22 @@ export async function recordCapturedPayment(input: VerifyPaymentInput): Promise<
       'captured', ${attempt.payment_method}
     ) ON CONFLICT DO NOTHING RETURNING *`;
 
-    let order = created;
+    let order = created as StoredOrder | undefined;
     if (!order) {
       const [existing] = await transaction`SELECT * FROM trevora_orders WHERE razorpay_order_id = ${input.orderId} OR razorpay_payment_id = ${input.paymentId} LIMIT 1`;
       if (!existing || existing.razorpay_order_id !== input.orderId || existing.razorpay_payment_id !== input.paymentId) {
         throw new Error("A conflicting order already exists for this payment.");
       }
-      order = existing;
+      order = existing as StoredOrder;
     }
     await transaction`UPDATE trevora_payment_attempts SET payment_status = 'captured' WHERE razorpay_order_id = ${input.orderId}`;
-
-    const customer: CustomerDetails = {
-      fullName: order.customer_name,
-      mobile: order.phone,
-      email: order.email,
-      address: order.address,
-      city: order.city,
-      state: order.state,
-      pinCode: order.pin_code
-    };
-    const products = order.products as OrderProduct[];
-    const subtotal = Number(order.subtotal_paise) / 100;
-    const shipping = Number(order.shipping_paise) / 100;
-    return {
-      reference: order.razorpay_order_id,
-      paymentId: order.razorpay_payment_id,
-      paymentStatus: "verified",
-      customer,
-      items: products.map(product => ({ ...product, lineTotal: product.unitPrice * product.quantity })),
-      subtotal,
-      shipping,
-      total: Number(order.amount_paise) / 100,
-      paymentMethod: order.payment_method as PaymentMethod,
-      createdAt: new Date(order.created_at).toISOString()
-    };
+    return toCheckoutOrder(order);
   });
+}
+
+/** Only call this after validating the signed, HttpOnly receipt token. */
+export async function getOrderByRazorpayId(orderId: string): Promise<CheckoutOrder | null> {
+  await ensureSchema();
+  const [order] = await db()`SELECT * FROM trevora_orders WHERE razorpay_order_id = ${orderId} AND payment_status = 'captured' LIMIT 1`;
+  return order ? toCheckoutOrder(order as StoredOrder) : null;
 }

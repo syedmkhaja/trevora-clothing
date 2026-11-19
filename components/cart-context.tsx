@@ -4,12 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import type { CheckoutOrder } from "@/lib/checkout";
 import type { Product } from "@/lib/products";
 
-export type CartItem = {
-  product: Product;
-  quantity: number;
-  size: string;
-};
-
+export type CartItem = { product: Product; quantity: number; size: string };
 type CartContextValue = {
   items: CartItem[];
   isOpen: boolean;
@@ -18,6 +13,7 @@ type CartContextValue = {
   addItem: (product: Product, size: string) => void;
   removeItem: (productId: string, size: string) => void;
   setQuantity: (productId: string, size: string, quantity: number) => void;
+  clearCart: () => void;
   count: number;
   total: number;
   checkoutOrder: CheckoutOrder | null;
@@ -58,7 +54,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const value = useMemo<CartContextValue>(() => {
     const count = items.reduce((sum, item) => sum + item.quantity, 0);
     const total = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-
     return {
       items,
       isOpen,
@@ -66,23 +61,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       closeCart: () => setIsOpen(false),
       addItem: (product, size) => setItems(current => {
         const existing = current.find(item => item.product.id === product.id && item.size === size);
-        if (existing) {
-          return current.map(item => item === existing ? { ...item, quantity: item.quantity + 1 } : item);
-        }
-        return [...current, { product, size, quantity: 1 }];
+        return existing
+          ? current.map(item => item === existing ? { ...item, quantity: item.quantity + 1 } : item)
+          : [...current, { product, size, quantity: 1 }];
       }),
-      removeItem: (productId, size) => setItems(current =>
-        current.filter(item => !(item.product.id === productId && item.size === size))
-      ),
-      setQuantity: (productId, size, quantity) => setItems(current => {
-        if (quantity < 1) {
-          return current.filter(item => !(item.product.id === productId && item.size === size));
-        }
-        return current.map(item => item.product.id === productId && item.size === size
-          ? { ...item, quantity }
-          : item
-        );
-      }),
+      removeItem: (productId, size) => setItems(current => current.filter(item => !(item.product.id === productId && item.size === size))),
+      setQuantity: (productId, size, quantity) => setItems(current => quantity < 1
+        ? current.filter(item => !(item.product.id === productId && item.size === size))
+        : current.map(item => item.product.id === productId && item.size === size ? { ...item, quantity } : item)),
+      clearCart: () => setItems([]),
       count,
       total,
       checkoutOrder,
