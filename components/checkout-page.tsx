@@ -22,16 +22,17 @@ type RazorpayConstructor = new (options: RazorpayOptions) => RazorpayInstance;
 declare global { interface Window { Razorpay?: RazorpayConstructor } }
 
 type PaymentState = "success" | "failed" | "cancelled" | "order-error" | null;
-type CreateOrderResponse = { orderId: string; amount: number; currency: "INR"; keyId: string; subtotal: number; shipping: number; total: number };
+type CreateOrderResponse = { orderId: string; amount: number; currency: "INR"; keyId: string };
 type ApiError = { error?: string };
+type Errors = Partial<Record<keyof CustomerDetails, string>>;
+
 const initialCustomer: CustomerDetails = { fullName: "", mobile: "", email: "", address: "", city: "", state: "", pinCode: "" };
 const paymentMethods: { id: PaymentMethod; icon: typeof Smartphone; detail: string }[] = [
   { id: "upi", icon: Smartphone, detail: "UPI apps including BHIM, PhonePe and Google Pay" },
   { id: "card", icon: CreditCard, detail: "Credit and debit cards" },
   { id: "netbanking", icon: Landmark, detail: "Major Indian banks" },
-  { id: "cod", icon: WalletCards, detail: "Not available until order storage is configured" }
+  { id: "cod", icon: WalletCards, detail: "Not available for online checkout" }
 ];
-type Errors = Partial<Record<keyof CustomerDetails, string>>;
 
 function loadRazorpay(): Promise<boolean> {
   if (typeof window === "undefined") return Promise.resolve(false);
@@ -52,12 +53,13 @@ function loadRazorpay(): Promise<boolean> {
     document.body.appendChild(script);
   });
 }
+
 async function readJson<T>(response: Response): Promise<T> { return response.json() as Promise<T>; }
 
 export default function CheckoutPage() {
-  const { items, total, setCheckoutOrder, clearCart } = useCart();
+  const { items, total, clearCart } = useCart();
   const router = useRouter();
-  const submitLock = useRef(false);
+  const lock = useRef(false);
   const [customer, setCustomer] = useState(initialCustomer);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("upi");
   const [errors, setErrors] = useState<Errors>({});
@@ -85,12 +87,12 @@ export default function CheckoutPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitLock.current || !items.length) return;
+    if (lock.current || !items.length) return;
     setPaymentState(null);
     setMessage("");
     if (paymentMethod === "cod") {
       setPaymentState("order-error");
-      setMessage("Cash on Delivery is not available until secure order storage is configured.");
+      setMessage("Cash on Delivery is not available for online checkout.");
       return;
     }
     const validationErrors = validate();
@@ -100,12 +102,11 @@ export default function CheckoutPage() {
       return;
     }
 
-    submitLock.current = true;
+    lock.current = true;
     setSubmitting(true);
     let checkoutOpened = false;
     try {
-      const loaded = await loadRazorpay();
-      if (!loaded || !window.Razorpay) throw new Error("Razorpay Checkout could not be loaded. Check your connection and try again.");
+      if (!await loadRazorpay() || !window.Razorpay) throw new Error("Razorpay Checkout could not be loaded. Check your connection and try again.");
       const createResponse = await fetch("/api/payments/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -118,7 +119,7 @@ export default function CheckoutPage() {
         return;
       }
 
-      const options: RazorpayOptions = {
+      const checkout = new window.Razorpay({
         key: created.keyId,
         amount: created.amount,
         currency: "INR",
@@ -130,48 +131,46 @@ export default function CheckoutPage() {
         theme: { color: "#171816" },
         handler: async paymentResponse => {
           try {
-            const verifyResponse = await fetch("/api/payments/verify", {
+            const response = await fetch("/api/payments/verify", {
               method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paymentResponse)
             });
-            const verified = await readJson<{ verified?: boolean; error?: string; order?: CheckoutOrder }>(verifyResponse);
-            if (!verifyResponse.ok || verified.verified !== true || !verified.order) {
+            const result = await readJson<{ verified?: boolean; error?: string; order?: CheckoutOrder }>(response);
+            if (!response.ok || result.verified !== true || !result.order) {
               setPaymentState("failed");
-              setMessage(verified.error ?? "Payment could not be verified. Please contact support before trying again.");
-              submitLock.current = false;
+              setMessage(result.error ?? "Payment could not be verified. Please contact support before retrying.");
+              lock.current = false;
               return;
             }
-            // Clear only after server verification and durable order persistence succeeded.
-            setCheckoutOrder(verified.order);
+            // API only returns verified order after durable persistence and sets the receipt cookie.
             clearCart();
             setPaymentState("success");
             router.push("/checkout/confirmation");
           } catch {
             setPaymentState("failed");
-            setMessage("We could not verify the payment response. Please contact support before making another payment.");
-            submitLock.current = false;
+            setMessage("Payment may have been captured, but verification could not be completed. Contact support before retrying.");
+            lock.current = false;
           }
         },
         modal: { ondismiss: () => {
           setPaymentState("cancelled");
-          setMessage("Payment was cancelled. Your cart is unchanged and no successful payment was confirmed.");
-          submitLock.current = false;
+          setMessage("Payment was cancelled. Your cart is unchanged.");
+          lock.current = false;
         } }
-      };
-      const checkout = new window.Razorpay(options);
+      });
       checkout.on("payment.failed", response => {
         setPaymentState("failed");
-        setMessage(response.error?.description ?? "Payment failed. Your cart is unchanged; please retry or choose another method.");
-        submitLock.current = false;
+        setMessage(response.error?.description ?? "Payment failed. Your cart is unchanged; please retry.");
+        lock.current = false;
       });
       checkout.open();
       checkoutOpened = true;
     } catch (error) {
       setPaymentState("order-error");
       setMessage(error instanceof Error ? error.message : "Unable to start checkout. Please try again.");
-      submitLock.current = false;
+      lock.current = false;
     } finally {
       setSubmitting(false);
-      if (!checkoutOpened) submitLock.current = false;
+      if (!checkoutOpened) lock.current = false;
     }
   }
 
@@ -190,20 +189,19 @@ export default function CheckoutPage() {
     <div className="mt-10 grid items-start gap-12 lg:grid-cols-[1fr_380px]">
       <form onSubmit={handleSubmit} noValidate className="space-y-10">
         <section><h2 className="font-display text-2xl">Delivery details</h2><div className="mt-5 grid gap-x-6 gap-y-5 sm:grid-cols-2">
-          <label className="block text-[10px] uppercase tracking-widest sm:col-span-2">Customer name<input autoComplete="name" value={customer.fullName} onChange={event => updateField("fullName", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.fullName)} aria-describedby={errors.fullName ? "checkout-fullName-error" : undefined}/>{errorFor("fullName")}</label>
-          <label className="block text-[10px] uppercase tracking-widest">Mobile number<input autoComplete="tel" type="tel" inputMode="numeric" maxLength={10} value={customer.mobile} onChange={event => updateField("mobile", event.target.value.replace(/\D/g, ""))} placeholder="10-digit mobile number" className={inputClass} aria-invalid={Boolean(errors.mobile)} aria-describedby={errors.mobile ? "checkout-mobile-error" : undefined}/>{errorFor("mobile")}</label>
-          <label className="block text-[10px] uppercase tracking-widest">Email address<input autoComplete="email" type="email" value={customer.email} onChange={event => updateField("email", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? "checkout-email-error" : undefined}/>{errorFor("email")}</label>
-          <label className="block text-[10px] uppercase tracking-widest sm:col-span-2">Full delivery address<textarea autoComplete="street-address" rows={2} value={customer.address} onChange={event => updateField("address", event.target.value)} placeholder="House / flat, street, area, landmark" className={`${inputClass} resize-y`} aria-invalid={Boolean(errors.address)} aria-describedby={errors.address ? "checkout-address-error" : undefined}/>{errorFor("address")}</label>
-          <label className="block text-[10px] uppercase tracking-widest">City<input autoComplete="address-level2" value={customer.city} onChange={event => updateField("city", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.city)} aria-describedby={errors.city ? "checkout-city-error" : undefined}/>{errorFor("city")}</label>
-          <label className="block text-[10px] uppercase tracking-widest">State<input autoComplete="address-level1" value={customer.state} onChange={event => updateField("state", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.state)} aria-describedby={errors.state ? "checkout-state-error" : undefined}/>{errorFor("state")}</label>
-          <label className="block text-[10px] uppercase tracking-widest">PIN code<input autoComplete="postal-code" inputMode="numeric" maxLength={6} value={customer.pinCode} onChange={event => updateField("pinCode", event.target.value.replace(/\D/g, ""))} placeholder="6-digit PIN code" className={inputClass} aria-invalid={Boolean(errors.pinCode)} aria-describedby={errors.pinCode ? "checkout-pinCode-error" : undefined}/>{errorFor("pinCode")}</label>
+          <label className="block text-[10px] uppercase tracking-widest sm:col-span-2">Customer name<input autoComplete="name" value={customer.fullName} onChange={event => updateField("fullName", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.fullName)}/>{errorFor("fullName")}</label>
+          <label className="block text-[10px] uppercase tracking-widest">Mobile number<input autoComplete="tel" type="tel" inputMode="numeric" maxLength={10} value={customer.mobile} onChange={event => updateField("mobile", event.target.value.replace(/\D/g, ""))} placeholder="10-digit mobile number" className={inputClass} aria-invalid={Boolean(errors.mobile)}/>{errorFor("mobile")}</label>
+          <label className="block text-[10px] uppercase tracking-widest">Email address<input autoComplete="email" type="email" value={customer.email} onChange={event => updateField("email", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.email)}/>{errorFor("email")}</label>
+          <label className="block text-[10px] uppercase tracking-widest sm:col-span-2">Full delivery address<textarea autoComplete="street-address" rows={2} value={customer.address} onChange={event => updateField("address", event.target.value)} placeholder="House / flat, street, area, landmark" className={`${inputClass} resize-y`} aria-invalid={Boolean(errors.address)}/>{errorFor("address")}</label>
+          <label className="block text-[10px] uppercase tracking-widest">City<input autoComplete="address-level2" value={customer.city} onChange={event => updateField("city", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.city)}/>{errorFor("city")}</label>
+          <label className="block text-[10px] uppercase tracking-widest">State<input autoComplete="address-level1" value={customer.state} onChange={event => updateField("state", event.target.value)} className={inputClass} aria-invalid={Boolean(errors.state)}/>{errorFor("state")}</label>
+          <label className="block text-[10px] uppercase tracking-widest">PIN code<input autoComplete="postal-code" inputMode="numeric" maxLength={6} value={customer.pinCode} onChange={event => updateField("pinCode", event.target.value.replace(/\D/g, ""))} placeholder="6-digit PIN code" className={inputClass} aria-invalid={Boolean(errors.pinCode)}/>{errorFor("pinCode")}</label>
         </div></section>
-        <section><h2 className="font-display text-2xl">Payment method</h2><p className="mt-2 text-sm leading-6 text-black/55">Online payments are securely verified by Razorpay. Payment is captured only by the payment provider.</p><div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <section><h2 className="font-display text-2xl">Payment method</h2><p className="mt-2 text-sm leading-6 text-black/55">Online payments are securely verified by Razorpay. Only captured payments are accepted.</p><div className="mt-5 grid gap-3 sm:grid-cols-2">
           {paymentMethods.map(({ id, icon: Icon, detail }) => <label key={id} className={`flex gap-3 border p-4 transition ${id === "cod" ? "cursor-not-allowed opacity-50" : "cursor-pointer"} ${paymentMethod === id ? "border-ink bg-[#e9e5dd]" : "border-black/15 hover:border-black/40"}`}><input type="radio" name="paymentMethod" value={id} checked={paymentMethod === id} disabled={id === "cod"} onChange={() => setPaymentMethod(id)} className="mt-1 accent-[#171816]"/><Icon size={18} strokeWidth={1.5}/><span><span className="block text-sm">{paymentMethodLabels[id]}</span><span className="mt-1 block text-xs text-black/50">{detail}</span></span></label>)}
         </div></section>
-        <div className="border border-olive/40 bg-olive/10 p-4 text-sm leading-6" role="status">Order amounts are calculated from the server-side product catalogue in INR. Razorpay verifies payment signatures on the server. A fulfillment/order database is not configured yet; do not enable live selling until orders are persisted and monitored.</div>
         {message && <p className={`border p-4 text-sm leading-6 ${paymentState ? stateClasses[paymentState] : "border-red-300 bg-red-50 text-red-900"}`} role="alert">{paymentState === "success" ? "Payment successful — " : paymentState === "failed" ? "Payment failed — " : paymentState === "cancelled" ? "Payment cancelled — " : paymentState === "order-error" ? "Order creation error — " : ""}{message}</p>}
-        <button type="submit" disabled={submitting || submitLock.current} className="w-full bg-ink py-4 text-[10px] uppercase tracking-[.18em] text-paper transition hover:bg-olive disabled:cursor-wait disabled:opacity-60">{submitting ? "Connecting to Razorpay…" : `Pay ${formatINR(finalTotal)}`}</button>
+        <button type="submit" disabled={submitting || lock.current} className="w-full bg-ink py-4 text-[10px] uppercase tracking-[.18em] text-paper transition hover:bg-olive disabled:cursor-wait disabled:opacity-60">{submitting ? "Connecting to Razorpay…" : `Pay ${formatINR(finalTotal)}`}</button>
       </form>
       <aside className="h-fit bg-[#e9e5dd] p-5 sm:p-6"><h2 className="eyebrow">Order summary <span className="text-black/45">({items.reduce((sum, item) => sum + item.quantity, 0)} items)</span></h2><div className="mt-5 max-h-[360px] space-y-4 overflow-y-auto">{items.map(item => <div key={`${item.product.id}-${item.size}`} className="flex gap-3"><img src={item.product.image} alt={item.product.name} className="h-20 w-16 object-cover"/><div className="min-w-0 flex-1"><p className="text-sm">{item.product.name}</p><p className="mt-1 text-xs text-black/50">Quantity {item.quantity} · Size {item.size}</p><div className="mt-2 flex justify-between gap-2 text-xs"><span>{formatINR(item.product.price)} × {item.quantity}</span><span>{formatINR(item.product.price * item.quantity)}</span></div></div></div>)}</div><div className="mt-5 space-y-3 border-t border-black/15 pt-5 text-sm"><div className="flex justify-between"><span>Subtotal</span><span>{formatINR(total)}</span></div><div className="flex justify-between"><span>Shipping</span><span>{formatINR(SHIPPING_CHARGE)}</span></div><div className="flex justify-between border-t border-black/15 pt-4 font-medium"><span>Final total</span><span>{formatINR(finalTotal)}</span></div></div></aside>
     </div>
