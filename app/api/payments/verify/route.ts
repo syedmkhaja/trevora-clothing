@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     if (payment.status !== "captured" && payment.captured !== true) {
       return NextResponse.json({ error: "Payment is not captured yet. Please check the status before retrying." }, { status: 409 });
     }
-    const savedOrder = await recordCapturedPayment({ orderId, paymentId, amountPaise: payment.amount, currency: payment.currency });
+    const savedOrder = await recordCapturedPayment({ orderId, paymentId, amountPaise: Number(payment.amount), currency: payment.currency });
     return NextResponse.json({ verified: true, order: savedOrder });
   } catch (error) {
     console.error("Razorpay payment verification or order persistence failed", error);
