@@ -39,6 +39,7 @@ export async function POST(request: Request) {
     normalizedItems.push({ productId: product.id, name: product.name, quantity: rawItem.quantity, size: rawItem.size, unitPrice: product.price });
   }
 
+  // Prices and totals are authoritative on the server; ignore client-submitted totals.
   const subtotalPaise = normalizedItems.reduce((sum, item) => sum + Math.round(item.unitPrice * 100) * item.quantity, 0);
   const shippingPaise = Math.round(SHIPPING_CHARGE * 100);
   const amountPaise = subtotalPaise + shippingPaise;
@@ -58,7 +59,14 @@ export async function POST(request: Request) {
     });
     return response;
   } catch (error) {
-    console.error("COD order persistence failed", error);
+    // Only log database error metadata; never customer/order payloads, query parameters, or credentials.
+    const dbError = error as { code?: unknown; constraint?: unknown; name?: unknown };
+    console.error("COD order persistence failed", {
+      errorName: typeof dbError?.name === "string" ? dbError.name : "UnknownError",
+      databaseCode: typeof dbError?.code === "string" ? dbError.code : undefined,
+      constraint: typeof dbError?.constraint === "string" ? dbError.constraint : undefined,
+      databaseConfigured: Boolean(process.env.DATABASE_URL)
+    });
     return NextResponse.json({ error: "We could not record your COD order. Please try again or contact support." }, { status: 502 });
   }
 }

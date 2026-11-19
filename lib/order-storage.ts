@@ -160,10 +160,10 @@ export async function createCODOrder(input: CODOrderInput): Promise<CheckoutOrde
       ${input.customer.address}, ${input.customer.city}, ${input.customer.state}, ${input.customer.pinCode},
       ${JSON.stringify(input.products)}::jsonb, ${input.subtotalPaise}, ${input.shippingPaise}, ${input.amountPaise},
       'pending', 'cod', ${input.idempotencyKey}
-    ) ON CONFLICT (cod_order_id) DO NOTHING RETURNING *`;
+    ) ON CONFLICT DO NOTHING RETURNING *`;
     if (created) return toCheckoutOrder(created as StoredOrder);
     const [retried] = await transaction`SELECT * FROM trevora_orders WHERE cod_order_id = ${input.orderId} OR idempotency_key = ${input.idempotencyKey} LIMIT 1`;
-    if (!retried) throw new Error("COD order could not be recorded.");
+    if (!retried) throw new Error("COD order could not be recorded after a uniqueness conflict.");
     return toCheckoutOrder(retried as StoredOrder);
   });
 }
