@@ -7,8 +7,6 @@ import { ArrowLeft, CreditCard, Landmark, Smartphone, WalletCards } from "lucide
 import { useCart } from "@/components/cart-context";
 import type { CartItem } from "@/components/cart-context";
 import { formatINR, paymentMethodLabels, SHIPPING_CHARGE, type CustomerDetails, type PaymentMethod } from "@/lib/checkout";
-import { createCheckoutRecord } from "@/lib/payment-provider";
-
 type RazorpaySuccess = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
 type RazorpayOptions = {
   key: string;
@@ -164,7 +162,6 @@ export default function CheckoutPage() {
               return;
             }
             const productsSnapshot = items.map(item => ({ product: item.product, quantity: item.quantity, size: item.size }));
-            setCheckoutOrder(createCheckoutRecord(created.orderId, paymentResponse.razorpay_payment_id, customer, productsSnapshot, created.shipping, paymentMethod));
             setPaymentState("success");
             router.push("/checkout/confirmation");
           } catch {
