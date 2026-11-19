@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     if (verifiedPayment.order_id !== order.id || verifiedPayment.amount !== order.amount || verifiedPayment.currency !== "INR" || verifiedPayment.status !== "captured") {
       return NextResponse.json({ error: "Provider payment state does not match the webhook." }, { status: 400 });
     }
-    await recordCapturedPayment({ orderId: order.id, paymentId: verifiedPayment.id, amountPaise: verifiedPayment.amount, currency: verifiedPayment.currency });
+    await recordCapturedPayment({ orderId: order.id, paymentId: verifiedPayment.id, amountPaise: Number  (verifiedPayment.amount), currency: verifiedPayment.currency });
     return NextResponse.json({ received: true, recorded: true });
   } catch (error) {
     console.error("Razorpay webhook order persistence failed", error);
