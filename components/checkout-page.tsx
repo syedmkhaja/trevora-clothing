@@ -6,7 +6,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ArrowLeft, CreditCard, Landmark, Smartphone, WalletCards } from "lucide-react";
 import { useCart } from "@/components/cart-context";
 import type { CartItem } from "@/components/cart-context";
-import { formatINR, paymentMethodLabels, SHIPPING_CHARGE, type CustomerDetails, type PaymentMethod } from "@/lib/checkout";
+import { formatINR, paymentMethodLabels, SHIPPING_CHARGE, type CheckoutOrder, type CustomerDetails, type PaymentMethod } from "@/lib/checkout";
 type RazorpaySuccess = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
 type RazorpayOptions = {
   key: string;
@@ -155,15 +155,15 @@ export default function CheckoutPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(paymentResponse)
             });
-            const verified = await readJson<{ verified?: boolean; error?: string }>(verifyResponse);
-            if (!verifyResponse.ok || verified.verified !== true) {
+            const verified = await readJson<{ verified?: boolean; error?: string Order?: CheckoutOrder }>(verifyResponse);
+            if (!verifyResponse.ok || verified.verified !== true || !verified.order) {
               setPaymentState("failed");
               setMessage(verified.error ?? "Payment could not be verified. Please contact support before trying again.");
               return;
             }
-            const productsSnapshot = items.map(item => ({ product: item.product, quantity: item.quantity, size: item.size }));
-            setPaymentState("success");
-            router.push("/checkout/confirmation");
+            setCheckoutOrder(verified.order);
+setPaymentState("success");
+router.push("/checkout/confirmation");
           } catch {
             setPaymentState("failed");
             setMessage("We could not verify the payment response. Please contact support before making another payment.");
