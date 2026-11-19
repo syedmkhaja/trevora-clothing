@@ -44,7 +44,6 @@ export async function POST(request: Request) {
     normalizedItems.push({ productId: product.id, name: product.name, quantity: rawItem.quantity, size: rawItem.size, unitPrice: product.price });
   }
 
-  // The client may send an order summary, but the server catalogue is authoritative.
   const subtotalPaise = normalizedItems.reduce((sum, item) => sum + Math.round(item.unitPrice * 100) * item.quantity, 0);
   const shippingPaise = Math.round(SHIPPING_CHARGE * 100);
   const amountPaise = subtotalPaise + shippingPaise;
@@ -62,7 +61,6 @@ export async function POST(request: Request) {
     });
     return response;
   } catch (error) {
-    // Limit diagnostics to error metadata; never log request or customer fields or credentials.
     const details = error as { name?: unknown; code?: unknown; constraint?: unknown };
     console.error("COD order persistence failed", {
       errorName: typeof details?.name === "string" ? details.name : "UnknownError",

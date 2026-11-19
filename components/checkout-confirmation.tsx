@@ -15,7 +15,7 @@ export default function CheckoutConfirmationPage({ order }: { order: CheckoutOrd
   return (
     <div className="container-wide min-h-[55vh] py-12 md:py-20">
       <div className="mx-auto max-w-3xl">
-        <p className="eyebrow text-olive">{isCOD ? "COD Order" : `Payment verified · ${reference}`}</p>
+        <p className="eyebrow text-olive">{isCOD ? `${order.orderStatus ?? "COD"} · ${reference}` : `Payment verified · ${reference}`}</p>
         <h1 className="mt-4 font-display text-4xl md:text-5xl">{isCOD ? "Order placed." : "Payment successful."}</h1>
         <div className="mt-7 border border-olive/40 bg-olive/10 p-5 text-sm leading-6">
           {isCOD ? <><strong>Cash on Delivery</strong><br/>Order ID: {reference}<br/>Final amount payable: {formatINR(total)}</> : <>Razorpay confirmed this payment. Payment ID: {paymentId}.<br/>Order reference: {reference}</>}

@@ -14,7 +14,7 @@ export type CheckoutOrder = {
   reference: string;
   paymentId: string;
   paymentStatus: "verified" | "pending";
-  orderStatus?: "COD Order";
+  orderStatus?: "COD";
   customer: CustomerDetails;
   items: { productId: string; name: string; quantity: number; size: string; unitPrice: number; lineTotal: number }[];
   subtotal: number;

@@ -108,7 +108,7 @@ function toCheckoutOrder(order: StoredOrder): CheckoutOrder {
     reference: isCOD && order.cod_order_id ? order.cod_order_id : (order.razorpay_order_id ?? ""),
     paymentId: order.razorpay_payment_id ?? "",
     paymentStatus: isCOD ? "pending" : "verified",
-    orderStatus: isCOD ? "COD Order" : undefined,
+    orderStatus: isCOD ? "COD" : undefined,
     customer,
     items: products.map(product => ({ ...product, lineTotal: product.unitPrice * product.quantity })),
     subtotal: Number(order.subtotal_paise) / 100,
@@ -147,30 +147,28 @@ export async function recordCapturedPayment(input: VerifyPaymentInput): Promise<
 
 export async function createCODOrder(input: CODOrderInput): Promise<CheckoutOrder> {
   await ensureSchema();
-  const client = db();
-  return client.begin(async transaction => {
+  return db().begin(async transaction => {
     const [existing] = await transaction`SELECT * FROM trevora_orders WHERE idempotency_key = ${input.idempotencyKey} OR cod_order_id = ${input.orderId} LIMIT 1`;
     if (existing) {
-      if (existing.payment_method !== "cod") throw new Error("Idempotency key is already associated with a non-COD order.");
+      if (existing.payment_method !== "cod") throw new Error("Idempotency key is associated with a non-COD order.");
       return toCheckoutOrder(existing as StoredOrder);
     }
 
-    // Catch conflicts from either unique key. This matters when identical retries race
-    // and both transactions pass the initial lookup before either inserts.
     const [created] = await transaction`INSERT INTO trevora_orders (
       razorpay_order_id, razorpay_payment_id, cod_order_id, order_status, customer_name, phone, email, address,
       city, state, pin_code, products, subtotal_paise, shipping_paise, amount_paise,
       payment_status, payment_method, idempotency_key
     ) VALUES (
-      NULL, NULL, ${input.orderId}, 'COD Order', ${input.customer.fullName}, ${input.customer.mobile}, ${input.customer.email},
+      NULL, NULL, ${input.orderId}, 'COD', ${input.customer.fullName}, ${input.customer.mobile}, ${input.customer.email},
       ${input.customer.address}, ${input.customer.city}, ${input.customer.state}, ${input.customer.pinCode},
       ${JSON.stringify(input.products)}::jsonb, ${input.subtotalPaise}, ${input.shippingPaise}, ${input.amountPaise},
       'pending', 'cod', ${input.idempotencyKey}
     ) ON CONFLICT DO NOTHING RETURNING *`;
     if (created) return toCheckoutOrder(created as StoredOrder);
 
+    // Resolve conflicts from either unique key, including simultaneous retries.
     const [retried] = await transaction`SELECT * FROM trevora_orders WHERE idempotency_key = ${input.idempotencyKey} OR cod_order_id = ${input.orderId} LIMIT 1`;
-    if (!retried || retried.payment_method !== "cod") throw new Error("COD order conflict could not be resolved to an existing COD order.");
+    if (!retried || retried.payment_method !== "cod") throw new Error("COD order conflict could not be resolved.");
     return toCheckoutOrder(retried as StoredOrder);
   });
 }
