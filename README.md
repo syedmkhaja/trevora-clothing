@@ -16,17 +16,25 @@ npm run typecheck
 npm run build
 ```
 
-## Razorpay configuration
+## Production checkout configuration
 
-Add `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` as server environment variables in Vercel Project Settings → Environment Variables. Do not use a `NEXT_PUBLIC_` prefix. `.env.example` lists the names only; never commit actual credentials. Restart/redeploy after adding or changing them.
+Configure these Vercel environment variables for the existing project (Production and Preview as appropriate):
 
-The app creates Razorpay orders in `/api/payments/create-order` using prices from the server product catalogue, then verifies captured payment signatures and provider order/payment details in `/api/payments/verify`. The key secret is only read in server modules. The public key ID is returned to the browser only to initialize Razorpay Checkout.
+- `RAZORPAY_KEY_ID` — Razorpay public key ID, used only to initialize Checkout.
+- `RAZORPAY_KEY_SECRET` — secret credential used only by server-side order creation and verification. Never prefix with `NEXT_PUBLIC_`.
+- `RAZORPAY_WEBHOOK_SECRET` — webhook signing secret configured in the Razorpay Dashboard for the webhook URL `/api/payments/webhook`.
+- `DATABASE_URL` — TLS-enabled PostgreSQL connection string for a managed PostgreSQL database. The app creates its two tables automatically on first payment API use; restrict database credentials and take regular backups.
 
-**Important before accepting live orders:** the current project has no durable order/fulfillment database, webhook reconciliation, or operational order workflow. A captured payment is verified and shown as a receipt in the current browser session, but this implementation does not persist the customer/order record for fulfillment. Connect durable order storage and a Razorpay webhook before enabling production sales. COD remains disabled until order storage exists.
+### Razorpay setup
+
+Configure a Razorpay webhook for `payment.captured` pointing to `https://<your-production-domain>/api/payments/webhook`. Keep its webhook signing secret separate from the API Key Secret. Set Razorpay to automatic capture (or implement an explicit capture operation before expecting successful verification). COD is disabled until order storage and fulfillment are implemented.
+
+Order creation recalculates item amounts from the server-side product catalogue and persists a payment-attempt record before returning the Razorpay order. A durable order record is inserted only after server signature verification and captured status; unique constraints on Razorpay order/payment IDs make browser verification and repeated webhook delivery idempotent. Webhooks are signature-verified and provider payment/order state is re-fetched before storage.
+
+Before accepting live customers, provision PostgreSQL, set all four variables, configure the webhook and automatic capture in Razorpay, test successful/failed/cancelled payment and webhook retry scenarios using test credentials, establish support/refund/fulfillment procedures, then perform a controlled live transaction. A database is mandatory: payments cannot be completed unless the attempt can be durably stored.
 
 ## Customize
 
-- Product catalogue, prices and image URLs: `lib/products.ts`
+- Product catalogue, prices and placeholder image URLs: `lib/products.ts`
 - Brand colors and typography: `tailwind.config.ts` and `app/globals.css`
-- Payment shipping charge and INR formatting: `lib/checkout.ts`
-- Product photos are currently remote Unsplash placeholders and should be replaced with brand-owned product images before launch.
+- Shipping charge and INR formatting: `lib/checkout.ts`
