@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { products } from "@/lib/products";
 import ProductCard from "@/components/product-card";
-
+import ShopifyBuyButton from "@/components/shopify-buy-button";
 const categories = ["All pieces", "Outerwear", "Tops", "Bottoms", "Accessories"];
 export default function ShopClient() {
   const [category, setCategory] = useState("All pieces");
