@@ -31,11 +31,13 @@ export async function POST(request: Request) {
 
   const normalizedItems: { productId: string; name: string; quantity: number; size: string; unitPrice: number }[] = [];
   for (const rawItem of data.items) {
-    if (!rawItem || typeof rawItem.productId !== "string" || typeof rawItem.size !== "string" || !["XS", "S", "M", "L", "XL", "One Size"].includes(rawItem.size) || !Number.isInteger(rawItem.quantity) || rawItem.quantity < 1 || rawItem.quantity > 20) {
+    if (!rawItem || typeof rawItem.productId !== "string" || typeof rawItem.size !== "string" || !Number.isInteger(rawItem.quantity) || rawItem.quantity < 1 || rawItem.quantity > 20) {
       return NextResponse.json({ error: "One or more cart items are invalid." }, { status: 400 });
     }
     const product = products.find(candidate => candidate.id === rawItem.productId);
-    if (!product) return NextResponse.json({ error: "A product in your cart is no longer available." }, { status: 400 });
+    if (!product || !product.sizes.includes(rawItem.size as typeof product.sizes[number])) {
+      return NextResponse.json({ error: "A product or size in your cart is no longer available." }, { status: 400 });
+    }
     normalizedItems.push({ productId: product.id, name: product.name, quantity: rawItem.quantity, size: rawItem.size, unitPrice: product.price });
   }
 

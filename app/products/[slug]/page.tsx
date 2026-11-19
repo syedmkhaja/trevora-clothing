@@ -13,5 +13,5 @@ export function generateMetadata({ params }: Props): Metadata {
 export default function ProductPage({ params }: Props) {
   const product = products.find(item => item.slug === params.slug);
   if (!product) notFound();
-  return <><div className="container-wide pt-6 text-[10px] uppercase tracking-widest text-black/45"><Link href="/shop" className="hover:text-black">Shop</Link><span className="mx-2">/</span><span>{product.name}</span></div><ProductDetail product={product}/></>;
+  return <><div className="container-wide pt-6 text-[10px] uppercase tracking-widest text-black/45"><Link href="/shop" className="hover:text-black">Shop</Link><span className="mx-2">/</span><span>{product.name}</span></div><ProductDetail key={product.id} product={product}/></>;
 }
