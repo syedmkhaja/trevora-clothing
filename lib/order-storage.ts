@@ -150,7 +150,13 @@ export async function createCODOrder(input: CODOrderInput): Promise<CheckoutOrde
   const client = db();
   return client.begin(async transaction => {
     const [existing] = await transaction`SELECT * FROM trevora_orders WHERE idempotency_key = ${input.idempotencyKey} OR cod_order_id = ${input.orderId} LIMIT 1`;
-    if (existing) return toCheckoutOrder(existing as StoredOrder);
+    if (existing) {
+      if (existing.payment_method !== "cod") throw new Error("Idempotency key is already associated with a non-COD order.");
+      return toCheckoutOrder(existing as StoredOrder);
+    }
+
+    // Catch conflicts from either unique key. This matters when identical retries race
+    // and both transactions pass the initial lookup before either inserts.
     const [created] = await transaction`INSERT INTO trevora_orders (
       razorpay_order_id, razorpay_payment_id, cod_order_id, order_status, customer_name, phone, email, address,
       city, state, pin_code, products, subtotal_paise, shipping_paise, amount_paise,
@@ -160,10 +166,11 @@ export async function createCODOrder(input: CODOrderInput): Promise<CheckoutOrde
       ${input.customer.address}, ${input.customer.city}, ${input.customer.state}, ${input.customer.pinCode},
       ${JSON.stringify(input.products)}::jsonb, ${input.subtotalPaise}, ${input.shippingPaise}, ${input.amountPaise},
       'pending', 'cod', ${input.idempotencyKey}
-    ) ON CONFLICT (cod_order_id) DO NOTHING RETURNING *`;
+    ) ON CONFLICT DO NOTHING RETURNING *`;
     if (created) return toCheckoutOrder(created as StoredOrder);
-    const [retried] = await transaction`SELECT * FROM trevora_orders WHERE cod_order_id = ${input.orderId} OR idempotency_key = ${input.idempotencyKey} LIMIT 1`;
-    if (!retried) throw new Error("COD order could not be recorded.");
+
+    const [retried] = await transaction`SELECT * FROM trevora_orders WHERE idempotency_key = ${input.idempotencyKey} OR cod_order_id = ${input.orderId} LIMIT 1`;
+    if (!retried || retried.payment_method !== "cod") throw new Error("COD order conflict could not be resolved to an existing COD order.");
     return toCheckoutOrder(retried as StoredOrder);
   });
 }
