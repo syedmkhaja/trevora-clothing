@@ -5,10 +5,131 @@ import Newsletter from "@/components/newsletter";
 import { products } from "@/lib/products";
 
 export default function HomePage() {
-  return <>
-    <section className="relative flex min-h-[620px] items-end overflow-hidden bg-ink text-paper md:min-h-[690px]"><img src="https://images.unsplash.com/photo-1523398002811-999ca8dec234?auto=format&fit=crop&w=2200&q=90" alt="TREVORA contemporary streetwear collection" className="absolute inset-0 h-full w-full object-cover object-center opacity-55"/><div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/15 to-black/20"/><div className="container-wide relative z-10 pb-16 pt-28 md:pb-24"><p className="eyebrow reveal text-white/75">A study in everyday dressing · 2025 collection</p><h1 className="reveal mt-6 max-w-3xl font-display text-6xl leading-[.94] md:text-8xl" style={{ animationDelay: ".1s" }}>Wear your<br/><em className="font-normal">own way.</em></h1><p className="reveal mt-6 max-w-sm text-sm leading-6 text-white/75 md:text-base" style={{ animationDelay: ".2s" }}>Thoughtful essentials. Uncomplicated layers. Made for wherever the day takes you.</p><Link href="/shop" className="reveal mt-8 inline-flex items-center gap-8 border border-white/70 px-5 py-4 text-[10px] uppercase tracking-[.18em] transition hover:bg-paper hover:text-ink" style={{ animationDelay: ".3s" }}>Discover the collection <ArrowRight size={15}/></Link></div><div className="absolute bottom-8 right-8 hidden items-center gap-3 text-[9px] uppercase tracking-[.2em] text-white/70 md:flex"><ArrowDown size={14}/> Scroll to explore</div></section>
-    <section className="container-wide py-20 md:py-28"><div className="mb-9 flex items-end justify-between"><div><p className="eyebrow text-olive">The current edit</p><h2 className="mt-3 font-display text-4xl md:text-5xl">Quietly essential.</h2></div><Link href="/shop" className="hidden items-center gap-2 text-xs uppercase tracking-widest hover:text-olive sm:flex">Shop all <ArrowRight size={14}/></Link></div><div className="grid grid-cols-2 gap-x-4 gap-y-9 md:grid-cols-4 md:gap-x-5">{products.slice(0, 4).map(product => <ProductCard key={product.id} product={product}/>)}</div><Link href="/shop" className="mt-8 flex items-center justify-center gap-2 border border-black/20 py-4 text-[10px] uppercase tracking-widest sm:hidden">Shop all <ArrowRight size={14}/></Link></section>
-    <section className="grid md:grid-cols-2"><div className="min-h-[400px] bg-[#d8d1c5]"><img src="https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=85" alt="Everyday style in the city" className="h-full min-h-[400px] w-full object-cover"/></div><div className="flex flex-col justify-center px-8 py-16 md:px-16 lg:px-24"><p className="eyebrow text-olive">Less, but better</p><h2 className="mt-5 max-w-md font-display text-4xl leading-tight md:text-5xl">Designed to be worn. And worn again.</h2><p className="mt-5 max-w-md text-sm leading-7 text-black/60">We believe the best clothes earn their place in your everyday. Thoughtful materials, considered details and shapes that feel like your own.</p><Link href="/about" className="mt-8 inline-flex w-fit items-center gap-3 border-b border-black pb-2 text-[10px] uppercase tracking-widest">Our point of view <ArrowRight size={14}/></Link></div></section>
-    <Newsletter/>
-  </>;
-}
+  const featuredProducts = products.slice(0, 4);
+  const newArrivals = products.slice(0, 8);
+
+  return (
+    <>
+      {/* HERO */}
+      <section className="relative min-h-[680px] overflow-hidden bg-black text-white md:min-h-[760px]">
+        <img
+          src="https://images.unsplash.com/photo-1523398002811-999ca8dec234?auto=format&fit=crop&w=2200&q=90"
+          alt="TREVORA contemporary clothing collection"
+          className="absolute inset-0 h-full w-full object-cover object-center opacity-70"
+        />
+
+        <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10" />
+
+        <div className="container-wide relative z-10 flex min-h-[680px] flex-col justify-end pb-16 pt-32 md:min-h-[760px] md:pb-24">
+          <p className="eyebrow text-white/70">
+            TREVORA CLOTHING · NEW COLLECTION
+          </p>
+
+          <h1 className="mt-5 max-w-4xl font-display text-6xl leading-[0.9] tracking-tight md:text-8xl lg:text-[110px]">
+            Dress
+            <br />
+            <em className="font-normal">your way.</em>
+          </h1>
+
+          <p className="mt-7 max-w-md text-sm leading-7 text-white/75 md:text-base">
+            Premium everyday essentials designed for modern streetwear,
+            effortless styling and everyday confidence.
+          </p>
+
+          <div className="mt-9 flex flex-wrap gap-3">
+            <Link
+              href="/shop"
+              className="inline-flex items-center gap-6 bg-white px-6 py-4 text-[10px] font-medium uppercase tracking-[0.2em] text-black transition hover:bg-white/90"
+            >
+              Shop collection
+              <ArrowRight size={15} />
+            </Link>
+
+            <Link
+              href="/about"
+              className="inline-flex items-center gap-3 border border-white/50 px-6 py-4 text-[10px] uppercase tracking-[0.2em] text-white transition hover:bg-white hover:text-black"
+            >
+              Our story
+            </Link>
+          </div>
+        </div>
+
+        <div className="absolute bottom-8 right-8 hidden items-center gap-3 text-[9px] uppercase tracking-[0.2em] text-white/60 md:flex">
+          <ArrowDown size={14} />
+          Scroll to explore
+        </div>
+      </section>
+
+      {/* TRUST BAR */}
+      <section className="border-b border-black/10 bg-[#f7f5f1]">
+        <div className="container-wide grid grid-cols-2 divide-x divide-black/10 md:grid-cols-4">
+          <div className="px-4 py-7 text-center md:px-6">
+            <p className="text-[10px] font-medium uppercase tracking-[0.16em]">
+              Cash on Delivery
+            </p>
+            <p className="mt-2 text-xs text-black/50">
+              Easy & convenient
+            </p>
+          </div>
+
+          <div className="px-4 py-7 text-center md:px-6">
+            <p className="text-[10px] font-medium uppercase tracking-[0.16em]">
+              Secure Payment
+            </p>
+            <p className="mt-2 text-xs text-black/50">
+              Safe checkout
+            </p>
+          </div>
+
+          <div className="border-t border-black/10 px-4 py-7 text-center md:border-t-0 md:px-6">
+            <p className="text-[10px] font-medium uppercase tracking-[0.16em]">
+              Pan India Delivery
+            </p>
+            <p className="mt-2 text-xs text-black/50">
+              Delivered to your door
+            </p>
+          </div>
+
+          <div className="border-t border-black/10 px-4 py-7 text-center md:border-t-0 md:px-6">
+            <p className="text-[10px] font-medium uppercase tracking-[0.16em]">
+              TREVORA Quality
+            </p>
+            <p className="mt-2 text-xs text-black/50">
+              Made for everyday
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* FEATURED PRODUCTS */}
+      <section className="container-wide py-20 md:py-28">
+        <div className="mb-10 flex items-end justify-between">
+          <div>
+            <p className="eyebrow text-olive">Featured edit</p>
+
+            <h2 className="mt-3 font-display text-4xl md:text-5xl">
+              Essentials,
+              <br />
+              elevated.
+            </h2>
+          </div>
+
+          <Link
+            href="/shop"
+            className="hidden items-center gap-2 text-xs uppercase tracking-widest transition hover:text-olive sm:flex"
+          >
+            Shop all
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4 md:gap-x-5">
+          {featuredProducts.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+
+        <Link
+          href="/shop"
+          className="mt-
